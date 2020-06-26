@@ -1,5 +1,4 @@
-import React from "react";
-import { Switch, Route, Redirect } from "react-router-dom";
+import React, { useEffect } from "react";
 import { useService, useMachine } from "@xstate/react";
 import { makeStyles } from "@material-ui/core/styles";
 import { CssBaseline } from "@material-ui/core";
@@ -8,10 +7,9 @@ import { snackbarMachine } from "../machines/snackbarMachine";
 import { notificationsMachine } from "../machines/notificationsMachine";
 import { authService } from "../machines/authMachine";
 import AlertBar from "../components/AlertBar";
-import SignInForm from "../components/SignInForm";
-import SignUpForm from "../components/SignUpForm";
 import { bankAccountsMachine } from "../machines/bankAccountsMachine";
 import PrivateRoutesContainer from "./PrivateRoutesContainer";
+import { withAuthenticationRequired, useAuth0 } from "@auth0/auth0-react";
 
 // @ts-ignore
 if (window.Cypress) {
@@ -26,7 +24,8 @@ const useStyles = makeStyles((theme) => ({
   },
 }));
 
-const App: React.FC = () => {
+const AppAuth0: React.FC = () => {
+  const { isAuthenticated, user, getAccessTokenSilently } = useAuth0();
   const classes = useStyles();
   const [authState] = useService(authService);
   const [, , notificationsService] = useMachine(notificationsMachine);
@@ -35,10 +34,18 @@ const App: React.FC = () => {
 
   const [, , bankAccountsService] = useMachine(bankAccountsMachine);
 
+  useEffect(() => {
+    (async function waitForToken() {
+      const token = await getAccessTokenSilently();
+      authService.send("AUTH0", { user, token });
+    })();
+  }, [user, getAccessTokenSilently]);
+
   const isLoggedIn =
-    authState.matches("authorized") ||
-    authState.matches("refreshing") ||
-    authState.matches("updating");
+    isAuthenticated &&
+    (authState.matches("authorized") ||
+      authState.matches("refreshing") ||
+      authState.matches("updating"));
 
   return (
     <div className={classes.root}>
@@ -53,26 +60,10 @@ const App: React.FC = () => {
           bankAccountsService={bankAccountsService}
         />
       )}
-      {authState.matches("unauthorized") && (
-        <Switch>
-          <Route exact path="/signup">
-            <SignUpForm authService={authService} />
-          </Route>
-          <Route exact path="/signin">
-            <SignInForm authService={authService} />
-          </Route>
-          <Route path="/">
-            <Redirect
-              to={{
-                pathname: "/signin",
-              }}
-            />
-          </Route>
-        </Switch>
-      )}
+
       <AlertBar snackbarService={snackbarService} />
     </div>
   );
 };
 
-export default App;
+export default withAuthenticationRequired(AppAuth0);

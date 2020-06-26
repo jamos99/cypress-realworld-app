@@ -1,5 +1,26 @@
+import dotenv from "dotenv";
 import { Request, Response, NextFunction } from "express";
 import { validationResult } from "express-validator";
+import jwt from "express-jwt";
+import jwksRsa from "jwks-rsa";
+
+dotenv.config({ path: ".env.local" });
+dotenv.config();
+
+export const checkJwt = jwt({
+  secret: jwksRsa.expressJwtSecret({
+    cache: true,
+    rateLimit: true,
+    jwksRequestsPerMinute: 5,
+    jwksUri: `https://${process.env.REACT_APP_AUTH0_DOMAIN}/.well-known/jwks.json`,
+  }),
+
+  // Validate the audience and the issuer.
+  audience: process.env.REACT_APP_AUTH0_AUDIENCE,
+  issuer: `https://${process.env.REACT_APP_AUTH0_DOMAIN}/`,
+  algorithms: ["RS256"],
+}).unless({ path: ["/testData/*"] });
+
 export const ensureAuthenticated = (req: Request, res: Response, next: NextFunction) => {
   if (req.isAuthenticated()) {
     return next();

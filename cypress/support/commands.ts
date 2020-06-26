@@ -287,3 +287,38 @@ Cypress.Commands.add("database", (operation, entity, query, logTask = false) => 
     return data;
   });
 });
+
+Cypress.Commands.add("auth0AllowApp", () => {
+  cy.get("body").then(($body) => {
+    // If OAuth consent screen, allow
+    if ($body.find("#allow").length > 0) {
+      cy.get("#allow").click();
+    }
+  });
+});
+
+Cypress.Commands.add("auth0EnterUserCredentials", (username, password) => {
+  cy.get("body").then(($body) => {
+    if ($body.find(".auth0-lock-last-login-pane").length > 0) {
+      // Use the saved credentials to re-authenticate
+      cy.get('.auth0-lock-last-login-pane a[type="button"]').click();
+    } else {
+      // Fill in login form
+      cy.get('[name="email"].auth0-lock-input').clear().type(username);
+      cy.get('[name="password"].auth0-lock-input').clear().type(password, { log: false });
+      cy.get(".auth0-lock-submit").click();
+    }
+  });
+  cy.auth0AllowApp();
+});
+
+Cypress.Commands.add("loginByAuth0", (username, password) => {
+  // See https://github.com/cypress-io/cypress/issues/408 needed to clear all cookies from all domains
+  // @ts-ignore
+  cy.clearCookies({ domain: null });
+
+  cy.visit("/");
+
+  cy.auth0AllowApp();
+  cy.auth0EnterUserCredentials(username, password);
+});
